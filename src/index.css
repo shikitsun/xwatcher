@@ -1,0 +1,7 @@
+@import "tailwindcss";
+/* Could use custom design system, but currently use daisyui for faster development */
+@plugin "daisyui" {
+  themes:
+    light --garden,
+    dark --forest;
+}
