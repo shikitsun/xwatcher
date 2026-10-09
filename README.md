@@ -1,7 +1,21 @@
-# Tauri + React + Typescript
+# XWatcher - watch different video / audio at same time
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Remux provided video and audio like VLC "play audio with video" functionality, but more handy
+Create pairs from video aud audio sources
 
-## Recommended IDE Setup
+## TODO
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- Load from single directory
+- Save previously loaded directories and create library from that
+- Track last played video
+- Better UI: Animations, transitions, paths
+- Treat video-audio pairs as directory and play them as playlist
+- Memoize last played time for each video
+
+## Development
+
+```
+npm run tauri dev
+```
+
+Created using Tauri + react + typescript + tailwindCSS + daisyUI
