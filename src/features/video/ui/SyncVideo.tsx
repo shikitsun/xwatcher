@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import "@videojs/react/video/compat-skin.css";
+import { useEffect, useState, useTransition } from "react";
 import { clearRemuxVideo, createRemuxVideo } from "../api/SyncVideo";
+import { VideoPlayer, CompatVideoSkin, Video } from "@videojs/react/video";
 
 interface ISyncVideoProps {
   video: string;
@@ -8,15 +10,23 @@ interface ISyncVideoProps {
 
 export default function SyncVideo({ video, audio }: ISyncVideoProps) {
   const [src, setSrc] = useState<string | null>(null);
+  const [isLoading, startTransition] = useTransition();
 
   useEffect(() => {
-    createRemuxVideo(video, audio).then(setSrc);
+    startTransition(async () => {
+      setSrc(await createRemuxVideo(video, audio));
+    });
 
     return () => {
       clearRemuxVideo(video);
     };
   }, [video, audio]);
 
-  if (!src) return null;
-  return <video src={src} controls></video>;
+  return (
+    <VideoPlayer>
+      <CompatVideoSkin className="w-full aspect-video">
+        {!!src && <Video src={src || ""} />}
+      </CompatVideoSkin>
+    </VideoPlayer>
+  );
 }

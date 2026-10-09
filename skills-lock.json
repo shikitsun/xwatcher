@@ -6,6 +6,12 @@
       "sourceType": "github",
       "skillPath": "skills/daisyui/SKILL.md",
       "computedHash": "51be9420b195cc8935591595c315d5bca38f889f3750942d816134bd70f72a6b"
+    },
+    "videojs": {
+      "source": "videojs/skills",
+      "sourceType": "github",
+      "skillPath": "skills/videojs/SKILL.md",
+      "computedHash": "6eb8bcec11bac6c2701d64a5848f5002968b041c774341bcc97ba5a3e7203459"
     }
   }
 }
