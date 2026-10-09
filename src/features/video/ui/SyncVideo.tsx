@@ -1,7 +1,7 @@
-import "@videojs/react/video/compat-skin.css";
 import { useEffect, useState, useTransition } from "react";
 import { clearRemuxVideo, createRemuxVideo } from "../api/SyncVideo";
-import { VideoPlayer, CompatVideoSkin, Video } from "@videojs/react/video";
+import { VideoPlayer, Video } from "@videojs/react/video";
+import { VideoSkin } from "@/components/videojs/video/skin";
 
 interface ISyncVideoProps {
   video: string;
@@ -25,9 +25,9 @@ export default function SyncVideo({ video, audio }: ISyncVideoProps) {
   return (
     <div className="relative fade-out">
       <VideoPlayer>
-        <CompatVideoSkin className="w-full aspect-video">
+        <VideoSkin className="w-full aspect-video">
           {!!src && <Video src={src || ""} />}
-        </CompatVideoSkin>
+        </VideoSkin>
         {isLoading || !src ? (
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
             <span className="loading loading-spinner"></span>
