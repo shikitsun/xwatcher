@@ -31,7 +31,7 @@ pub async fn make_thumbnail(app: AppHandle, video_url: String) -> Result<String,
 
     let result = app
         .shell()
-        .sidecar("binaries/ffmpeg")
+        .sidecar("ffmpeg")
         .map_err(|e| e.to_string())?
         .args([
             "-y",
