@@ -23,10 +23,18 @@ export default function SyncVideo({ video, audio }: ISyncVideoProps) {
   }, [video, audio]);
 
   return (
-    <VideoPlayer>
-      <CompatVideoSkin className="w-full aspect-video">
-        {!!src && <Video src={src || ""} />}
-      </CompatVideoSkin>
-    </VideoPlayer>
+    <div className="relative fade-out">
+      <VideoPlayer>
+        <CompatVideoSkin className="w-full aspect-video">
+          {!!src && <Video src={src || ""} />}
+        </CompatVideoSkin>
+        {isLoading || !src ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+            <span className="loading loading-spinner"></span>
+            <span className="sr-only">Loading</span>
+          </div>
+        ) : null}
+      </VideoPlayer>
+    </div>
   );
 }
