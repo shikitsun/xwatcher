@@ -2,6 +2,7 @@ import { useEffect, useState, useTransition } from "react";
 import { clearRemuxVideo, createRemuxVideo } from "../api/SyncVideo";
 import { VideoPlayer, Video } from "@videojs/react/video";
 import { VideoSkin } from "@/components/videojs/video/skin";
+import { Container } from "@videojs/react";
 
 interface ISyncVideoProps {
   video: string;
@@ -23,18 +24,18 @@ export default function SyncVideo({ video, audio }: ISyncVideoProps) {
   }, [video, audio]);
 
   return (
-    <div className="relative fade-out">
-      <VideoPlayer>
+    <VideoPlayer>
+      <Container className="animate-in px-2">
         <VideoSkin className="w-full aspect-video">
           {!!src && <Video src={src || ""} />}
         </VideoSkin>
         {isLoading || !src ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-1/2 z-10">
             <span className="loading loading-spinner"></span>
             <span className="sr-only">Loading</span>
           </div>
         ) : null}
-      </VideoPlayer>
-    </div>
+      </Container>
+    </VideoPlayer>
   );
 }
