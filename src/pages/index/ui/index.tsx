@@ -41,7 +41,7 @@ export default function IndexPage() {
       {active && <SyncVideo video={active.video} audio={active.audio} />}
 
       <Activity mode={active ? "hidden" : "visible"}>
-        <ul className="flex items-center justify-center flex-wrap mx-auto gap-y-2 gap-x-2 fade-out">
+        <ul className="flex items-center justify-center flex-wrap mx-auto gap-y-2 gap-x-2 animate-in">
           {pairs.map((pair) => (
             <li key={pair.video}>
               <VideoCard src={pair.video} onSelect={() => setActive(pair)} />
