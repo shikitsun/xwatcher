@@ -17,7 +17,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
-            utils::video::preview::make_thumbnail
+            utils::video::preview::make_thumbnail,
+            utils::video::remux::create_remux,
+            utils::video::remux::clear_remux
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
