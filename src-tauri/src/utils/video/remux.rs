@@ -1,38 +1,25 @@
-use std::{
-    fs,
-    hash::{Hash, Hasher},
+use std::{collections::HashMap, sync::Mutex};
+
+use tauri::{
+    ipc::{Channel, InvokeResponseBody},
+    AppHandle, State,
+};
+use tauri_plugin_shell::{
+    process::{CommandChild, CommandEvent},
+    ShellExt,
 };
 
-use tauri::{AppHandle, Manager};
-use tauri_plugin_shell::ShellExt;
+#[derive(Default)]
+pub struct MuxJobs(Mutex<HashMap<String, CommandChild>>);
 
 #[tauri::command]
 pub async fn create_remux(
     app: AppHandle,
+    state: State<'_, MuxJobs>,
     video_url: String,
     audio_url: String,
-) -> Result<String, String> {
-    let cache_dir = app
-        .path()
-        .app_cache_dir()
-        .map_err(|e| e.to_string())?
-        .join("remuxes");
-
-    fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
-
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    video_url.hash(&mut hasher);
-    let output_path = cache_dir.join(format!("{:016x}.mp4", hasher.finish()));
-
-    if output_path.exists() {
-        return Ok(output_path.to_string_lossy().into_owned());
-    }
-
-    let output_arg = output_path
-        .to_str()
-        .ok_or_else(|| "Invalid output path".to_string())?
-        .to_owned();
-
+    on_chunk: Channel<InvokeResponseBody>,
+) -> Result<(), String> {
     let result = app
         .shell()
         .sidecar("ffmpeg")
@@ -48,44 +35,81 @@ pub async fn create_remux(
             "0:v:0",
             "-map",
             "1:a:0",
-            "-c",
-            "copy",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
             "-shortest",
             "-movflags",
-            "+faststart",
-            &output_arg,
+            "+frag_keyframe+empty_moov+default_base_moof",
+            "-f",
+            "mp4",
+            "pipe:1",
         ])
-        .output()
-        .await
+        .set_raw_out(true)
+        .spawn()
         .map_err(|e| e.to_string())?;
 
-    if !result.status.success() {
-        let error = String::from_utf8_lossy(&result.stderr);
-        return Err(format!("FFmpeg failed: {error}"));
+    let (mut rx, child) = result;
+
+    state
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(video_url.clone(), child);
+
+    // let encoding = Encoding::for_label(b"latin2").unwrap();
+    while let Some(event) = rx.recv().await {
+        match event {
+            CommandEvent::Stdout(line) => {
+                // let (decoded, _, _) = encoding.decode(&line);
+                // println!("got: {decoded}");
+                on_chunk
+                    .send(InvokeResponseBody::Raw(line.to_vec()))
+                    .map_err(|e| e.to_string())?;
+            }
+            _ => {}
+        }
     }
 
-    if !output_path.exists() {
-        return Err("FFmpeg did not create a thumbnail".to_string());
-    }
+    state
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .remove(&video_url);
 
-    Ok(output_path.to_string_lossy().into_owned())
+    Ok(())
 }
 
 #[tauri::command]
-pub async fn clear_remux(app: AppHandle, video_url: String) -> Result<(), String> {
-    let cache_dir = app
-        .path()
-        .app_cache_dir()
+pub async fn clear_remux(
+    app: AppHandle,
+    state: State<'_, MuxJobs>,
+    video_url: String,
+) -> Result<(), String> {
+    // let cache_dir = app
+    //     .path()
+    //     .app_cache_dir()
+    //     .map_err(|e| e.to_string())?
+    //     .join("remuxes");
+
+    // let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    // video_url.hash(&mut hasher);
+    // let output_path = cache_dir.join(format!("{:016x}.mp4", hasher.finish()));
+
+    // if output_path.exists() {
+    //     fs::remove_file(output_path).map_err(|_| "Invalid remove file")?;
+    //     return Ok(());
+    // }
+
+    let child = state
+        .0
+        .lock()
         .map_err(|e| e.to_string())?
-        .join("remuxes");
+        .remove(&video_url);
 
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    video_url.hash(&mut hasher);
-    let output_path = cache_dir.join(format!("{:016x}.mp4", hasher.finish()));
-
-    if output_path.exists() {
-        fs::remove_file(output_path).map_err(|_| "Invalid remove file")?;
-        return Ok(());
+    if let Some(child) = child {
+        child.kill().map_err(|e| e.to_string())?;
     }
 
     return Ok(());

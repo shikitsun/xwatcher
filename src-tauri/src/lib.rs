@@ -15,6 +15,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
+        .manage(utils::video::remux::MuxJobs::default())
         .invoke_handler(tauri::generate_handler![
             greet,
             utils::video::preview::make_thumbnail,

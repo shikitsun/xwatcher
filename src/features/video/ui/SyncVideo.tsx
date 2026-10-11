@@ -30,7 +30,7 @@ export default function SyncVideo({ video, audio }: ISyncVideoProps) {
           {!!src && <Video src={src || ""} />}
         </VideoSkin>
         {isLoading || !src ? (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-1/2 z-10">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
             <span className="loading loading-spinner"></span>
             <span className="sr-only">Loading</span>
           </div>
