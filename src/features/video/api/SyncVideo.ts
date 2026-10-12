@@ -23,8 +23,7 @@ export async function createRemuxVideo(video: string, audio: string) {
   const mediaSource = new MediaSource();
 
   mediaSource.addEventListener("sourceopen", async () => {
-    const mime = 'video/mp4; codecs="avc1.64001f, mp4a.40.2"';
-    // const mime = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+    const mime = 'video/mp4; codecs="avc1.4D4028, mp4a.40.2"';
 
     if (!MediaSource.isTypeSupported(mime)) {
       throw new Error(`Unsupported MIME/codecs: ${mime}`);
@@ -34,9 +33,18 @@ export async function createRemuxVideo(video: string, audio: string) {
     const queue: BufferSource[] = [];
     let finished = false;
 
+    function appendBuffer(value: BufferSource) {
+      try {
+        sourceBuffer.appendBuffer(value);
+      } catch (e) {
+        console.error(e);
+        clearRemuxVideo(video);
+      }
+    }
+
     sourceBuffer.addEventListener("updateend", () => {
-      if (queue.length) {
-        sourceBuffer.appendBuffer(queue.shift()!);
+      if (!sourceBuffer.updating && queue.length) {
+        appendBuffer(queue.shift()!);
       } else if (finished && mediaSource.readyState === "open") {
         mediaSource.endOfStream();
       }
@@ -45,13 +53,8 @@ export async function createRemuxVideo(video: string, audio: string) {
     const onChunk = new Channel();
     onChunk.onmessage = (arrayBuffer) => {
       queue.push(arrayBuffer as BufferSource);
-      if (!sourceBuffer.updating && queue.length) {
-        try {
-          sourceBuffer.appendBuffer(queue.shift()!);
-        } catch (e) {
-          console.error(e);
-          clearRemuxVideo(video);
-        }
+      if (!sourceBuffer.updating) {
+        appendBuffer(queue.shift()!);
       }
     };
 

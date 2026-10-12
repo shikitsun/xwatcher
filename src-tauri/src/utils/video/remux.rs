@@ -41,7 +41,7 @@ pub async fn create_remux(
             "aac",
             "-shortest",
             "-movflags",
-            "+frag_keyframe+empty_moov+default_base_moof",
+            "frag_keyframe+empty_moov+default_base_moof",
             "-f",
             "mp4",
             "pipe:1",
