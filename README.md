@@ -5,12 +5,17 @@ Create pairs from video aud audio sources
 
 ## TODO
 
-- Load from single directory
 - Save previously loaded directories and create library from that
 - Track last played video
 - Better UI: Animations, transitions, paths
 - Treat video-audio pairs as directory and play them as playlist
 - Memoize last played time for each video
+
+## Known limitations
+
+- Up to 2GB files currently supported
+- Video and audio sources selectable each individually
+
 
 ## Development
 

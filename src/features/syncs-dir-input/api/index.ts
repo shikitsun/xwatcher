@@ -4,7 +4,6 @@ import { ISyncPair } from "@/entities/syncs/model";
 import { Logger } from "@/shared/logger";
 import { family } from "@tauri-apps/plugin-os";
 
-// TODO load only parent directory and retrieve video and audio from it
 // focus on remuxer part for now
 export async function getDirectory() {
   return await open({

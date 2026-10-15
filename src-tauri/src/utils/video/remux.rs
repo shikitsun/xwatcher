@@ -87,21 +87,6 @@ pub async fn clear_remux(
     state: State<'_, MuxJobs>,
     video_url: String,
 ) -> Result<(), String> {
-    // let cache_dir = app
-    //     .path()
-    //     .app_cache_dir()
-    //     .map_err(|e| e.to_string())?
-    //     .join("remuxes");
-
-    // let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    // video_url.hash(&mut hasher);
-    // let output_path = cache_dir.join(format!("{:016x}.mp4", hasher.finish()));
-
-    // if output_path.exists() {
-    //     fs::remove_file(output_path).map_err(|_| "Invalid remove file")?;
-    //     return Ok(());
-    // }
-
     let child = state
         .0
         .lock()
