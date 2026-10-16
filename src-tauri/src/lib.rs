@@ -20,7 +20,8 @@ pub fn run() {
             greet,
             utils::video::preview::make_thumbnail,
             utils::video::remux::create_remux,
-            utils::video::remux::clear_remux
+            utils::video::remux::clear_remux,
+            utils::video::remux::probe_video_duration
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
