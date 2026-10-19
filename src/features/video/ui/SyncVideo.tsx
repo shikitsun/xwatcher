@@ -1,5 +1,5 @@
-import { useEffect, useState, useTransition } from "react";
-import { clearRemuxVideo, createRemuxVideo } from "../api/SyncVideo";
+import { useEffect, useState } from "react";
+import { SyncVideoStream } from "../api/SyncVideo";
 import { VideoPlayer, Video } from "@videojs/react/video";
 import { VideoSkin } from "@/components/videojs/video/skin";
 import { Container } from "@videojs/react";
@@ -10,31 +10,36 @@ interface ISyncVideoProps {
 }
 
 export default function SyncVideo({ video, audio }: ISyncVideoProps) {
-  const [src, setSrc] = useState<string | null>(null);
-  const [isLoading, startTransition] = useTransition();
+  const [sync, setSync] = useState<SyncVideoStream | null>(null);
 
   useEffect(() => {
-    startTransition(async () => {
-      setSrc(await createRemuxVideo(video, audio));
-    });
+    const stream = new SyncVideoStream(video, audio);
+    setSync(stream);
 
     return () => {
-      clearRemuxVideo(video);
+      setSync((current) => (current === stream ? null : current));
+      stream.dispose();
     };
   }, [video, audio]);
+
+  function update<T extends Pick<Event, "target">>(ev: T) {
+    sync?.update((ev.target as HTMLVideoElement).currentTime);
+  }
 
   return (
     <VideoPlayer>
       <Container className="animate-in px-2">
         <VideoSkin className="w-full aspect-video">
-          {!!src && <Video src={src || ""} />}
+          {!!sync && (
+            <Video
+              src={sync.url}
+              onTimeUpdate={update}
+              onSeeking={update}
+              onSeeked={update}
+              onWaiting={update}
+            />
+          )}
         </VideoSkin>
-        {isLoading || !src ? (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-            <span className="loading loading-spinner"></span>
-            <span className="sr-only">Loading</span>
-          </div>
-        ) : null}
       </Container>
     </VideoPlayer>
   );
