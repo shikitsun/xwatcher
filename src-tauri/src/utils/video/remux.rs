@@ -216,3 +216,56 @@ pub async fn clear_remux(state: State<'_, MuxJobs>, video_url: String) -> Result
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::remux_args;
+
+    fn seek_indexes(args: &[String]) -> Vec<usize> {
+        args.iter()
+            .enumerate()
+            .filter(|(_, arg)| arg.as_str() == "-ss")
+            .map(|(index, _)| index)
+            .collect()
+    }
+
+    #[test]
+    fn seeks_each_input_to_the_same_offset() {
+        let args = remux_args(80.0, 60.0, "video.mp4", "audio.m4a");
+        let seeks = seek_indexes(&args);
+
+        assert_eq!(seeks.len(), 2);
+        for index in seeks {
+            assert_eq!(args[index + 1], "80");
+            assert_eq!(args[index + 2], "-i");
+        }
+    }
+
+    #[test]
+    fn does_not_seek_at_zero() {
+        let args = remux_args(0.0, 60.0, "video.mp4", "audio.m4a");
+
+        assert!(seek_indexes(&args).is_empty());
+        assert_eq!(args.iter().filter(|arg| arg.as_str() == "-i").count(), 2);
+    }
+
+    #[test]
+    fn passes_chunk_length_and_stream_target() {
+        let args = remux_args(0.0, 45.5, "video.mp4", "audio.m4a");
+        let duration = args
+            .iter()
+            .position(|arg| arg.as_str() == "-t")
+            .expect("-t must be present");
+
+        assert_eq!(args[duration + 1], "45.500");
+        assert_eq!(args.last().map(String::as_str), Some("pipe:1"));
+    }
+
+    #[test]
+    fn maps_both_streams() {
+        let args = remux_args(0.0, 60.0, "video.mp4", "audio.m4a");
+
+        assert!(args.windows(2).any(|pair| pair == ["-map", "0:v:0"]));
+        assert!(args.windows(2).any(|pair| pair == ["-map", "1:a:0"]));
+    }
+}
