@@ -6,4 +6,8 @@ export class Logger {
   static warn(...data: string[]) {
     console.warn(...data);
   }
+
+  static error(...data: unknown[]) {
+    console.error(...data);
+  }
 }

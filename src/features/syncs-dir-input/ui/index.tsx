@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { createSyncPairs, getDirectory } from "../api";
 import { ISyncPair } from "@/entities/syncs/model";
+import { Logger } from "@/shared/logger";
+import { errorMessage } from "@/lib/error-message";
 
 interface ISyncsDirInputModalProps {
   onLoad: (data: ISyncPair[]) => void;
@@ -12,12 +14,46 @@ export default function SyncsDirInputModal({
   const ref = useRef<HTMLDialogElement>(null);
   const [videoDir, setVideoDir] = useState<string | null>(null);
   const [audioDir, setAudioDir] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function pickDirectory(target: "video" | "audio") {
+    setError(null);
+
+    try {
+      const dir = await getDirectory();
+      if (!dir) return;
+      if (target === "video") setVideoDir(dir);
+      else setAudioDir(dir);
+    } catch (cause) {
+      Logger.error("[SyncsDirInputModal]: directory pick failed", cause);
+      setError(errorMessage(cause));
+    }
+  }
+
+  async function load() {
+    if (!videoDir || !audioDir || loading) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const pairs = await createSyncPairs(videoDir, audioDir);
+      onLoad(pairs);
+      ref.current?.close();
+    } catch (cause) {
+      Logger.error("[SyncsDirInputModal]: loading pairs failed", cause);
+      setError(errorMessage(cause));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <>
       <button
         className="btn btn-outline btn-accent"
-        onClick={() => ref.current?.show()}
+        onClick={() => ref.current?.showModal()}
         aria-label="Load"
       >
         <svg
@@ -43,9 +79,7 @@ export default function SyncsDirInputModal({
             <legend className="fieldset-legend">Video</legend>
             <button
               className="btn btn-outline btn-primary"
-              onClick={async () => {
-                setVideoDir(await getDirectory());
-              }}
+              onClick={() => void pickDirectory("video")}
               aria-label="Select"
             >
               <svg
@@ -73,9 +107,7 @@ export default function SyncsDirInputModal({
             <legend className="fieldset-legend">Audio</legend>
             <button
               className="btn btn-outline btn-primary"
-              onClick={async () => {
-                setAudioDir(await getDirectory());
-              }}
+              onClick={() => void pickDirectory("audio")}
               aria-label="Select"
             >
               <svg
@@ -101,23 +133,22 @@ export default function SyncsDirInputModal({
 
           <p className="py-4">Select video and audio source directories</p>
 
+          {error && (
+            <div role="alert" className="alert alert-error mb-4">
+              <span>{error}</span>
+            </div>
+          )}
+
           <div className="modal-action">
             <button className="btn" onClick={() => ref.current?.close()}>
               Close
             </button>
             <button
               className="btn btn-success"
-              disabled={!videoDir || !audioDir}
-              onClick={async (ev) => {
-                if (!videoDir || !audioDir) {
-                  ev.preventDefault();
-                  return;
-                }
-                onLoad(await createSyncPairs(videoDir, audioDir));
-                ref.current?.close();
-              }}
+              disabled={!videoDir || !audioDir || loading}
+              onClick={() => void load()}
             >
-              Load
+              {loading ? "Loading…" : "Load"}
             </button>
           </div>
         </div>
