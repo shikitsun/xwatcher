@@ -62,6 +62,8 @@ export class FakeSourceBuffer extends EventTarget {
   timestampOffset = 0;
   /** how much appendBuffer should catch QuotaExceededError. */
   quotaFailures = 0;
+  /** Emits a fatal `error` event instead of `updateend` for the next update. */
+  failNextUpdate = false;
 
   appendBuffer(data: BufferSource) {
     if (this.updating) {
@@ -112,6 +114,13 @@ export class FakeSourceBuffer extends EventTarget {
     this.updating = true;
     queueMicrotask(() => {
       this.updating = false;
+
+      if (this.failNextUpdate) {
+        this.failNextUpdate = false;
+        this.dispatchEvent(new Event("error"));
+        return;
+      }
+
       this.dispatchEvent(new Event("updateend"));
     });
   }
