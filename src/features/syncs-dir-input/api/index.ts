@@ -25,9 +25,9 @@ export async function createSyncPairs(videoDir: string, audioDir: string) {
       Logger.warn(`[createSyncPairs]: video is directory`);
       continue;
     }
-    const [name] = video.name.split(".");
+    const name = video.name.slice(0, video.name.lastIndexOf("."));
     // find audio by matching name from audio
-    const audio = audios.find((audio) => audio.name.startsWith(name));
+    const audio = audios.find((audio) => audio.name.includes(name));
     if (!audio || audio.isDirectory) continue;
 
     result.push({
