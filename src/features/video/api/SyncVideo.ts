@@ -1,3 +1,4 @@
+import { Logger } from "@/shared/logger";
 import { Channel, invoke } from "@tauri-apps/api/core";
 
 /** Configuration for remuxing streaming. */
@@ -29,9 +30,12 @@ export const DEFAULT_SYNC_VIDEO_CONFIG: SyncVideoStreamConfig = {
 
 const MIME = 'video/mp4; codecs="avc1.4D4028, mp4a.40.2"';
 const APPEND_BATCH_BYTES = 1024 * 1024;
+/** Guards against a SourceBuffer that never reports `updateend`. */
+const SOURCE_BUFFER_UPDATE_TIMEOUT_MS = 10_000;
 
-if (!MediaSource.isTypeSupported(MIME)) {
-  throw new Error(`Unsupported MIME/codecs: ${MIME}`);
+export interface SyncVideoStreamHandlers {
+  /** Called once when playback cannot continue. */
+  onError?: (error: Error) => void;
 }
 
 /**
@@ -71,15 +75,36 @@ function bufferedRunEnd(
 function waitForUpdateEnd(buffer: SourceBuffer): Promise<void> {
   if (!buffer.updating) return Promise.resolve();
 
-  return new Promise((resolve) => {
-    const done = () => {
-      buffer.removeEventListener("updateend", done);
-      buffer.removeEventListener("abort", done);
-      resolve();
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+
+      buffer.removeEventListener("updateend", onUpdateEnd);
+      buffer.removeEventListener("abort", onUpdateEnd);
+      buffer.removeEventListener("error", onError);
+      clearTimeout(timeout);
+
+      if (error) reject(error);
+      else resolve();
     };
 
-    buffer.addEventListener("updateend", done);
-    buffer.addEventListener("abort", done);
+    const onUpdateEnd = () => finish();
+    // A fatal SourceBuffer error does not emit `updateend`, so waiting for it
+    // alone parks playback forever. The timeout covers transports that never
+    // report anything at all.
+    const onError = () => finish(new Error("SourceBuffer reported an error"));
+
+    const timeout = setTimeout(
+      () => finish(new Error("SourceBuffer update timed out")),
+      SOURCE_BUFFER_UPDATE_TIMEOUT_MS,
+    );
+
+    buffer.addEventListener("updateend", onUpdateEnd);
+    buffer.addEventListener("abort", onUpdateEnd);
+    buffer.addEventListener("error", onError);
   });
 }
 
@@ -110,25 +135,54 @@ export class SyncVideoStream {
   /** Invalidate results before seek started */
   #generation = 0;
   #disposed = false;
+  /** Set by an unrecoverable failure; stops scheduling new work. */
+  #failed = false;
+  #onError: SyncVideoStreamHandlers["onError"];
 
   get url() {
     return this.#url;
+  }
+
+  /** Whether this WebView can run the stream at all. */
+  static isSupported(): boolean {
+    return (
+      typeof MediaSource !== "undefined" && MediaSource.isTypeSupported(MIME)
+    );
   }
 
   constructor(
     videoUrl: string,
     audioUrl: string,
     config: Partial<SyncVideoStreamConfig> = {},
+    handlers: SyncVideoStreamHandlers = {},
   ) {
+    if (!SyncVideoStream.isSupported()) {
+      throw new Error(
+        "This WebView cannot play H.264/AAC through Media Source Extensions",
+      );
+    }
+
     this.#videoUrl = videoUrl;
     this.#audioUrl = audioUrl;
     this.#config = this.#resolveConfig(config);
+    this.#onError = handlers.onError;
 
     this.#mediaSource.addEventListener("sourceopen", () => {
-      void this.#onSourceOpen();
+      void this.#onSourceOpen().catch((error) => this.#report(error));
     });
 
     this.#url = URL.createObjectURL(this.#mediaSource);
+  }
+
+  /** Surfaces the first fatal error to the owner and stops scheduling. */
+  #report(error: unknown) {
+    if (this.#failed) return;
+    this.#failed = true;
+
+    const normalized =
+      error instanceof Error ? error : new Error(String(error));
+    Logger.error("SyncVideoStream:", normalized);
+    this.#onError?.(normalized);
   }
 
   #resolveConfig(
@@ -193,7 +247,7 @@ export class SyncVideoStream {
    * Update currentTime from external sources
    */
   update(now: number) {
-    if (this.#disposed || !Number.isFinite(now)) return;
+    if (this.#disposed || this.#failed || !Number.isFinite(now)) return;
 
     this.#now = Math.max(0, now);
 
@@ -220,7 +274,8 @@ export class SyncVideoStream {
   }
 
   #schedule() {
-    if (this.#running || this.#disposed || !this.#sourceBuffer) return;
+    if (this.#running || this.#disposed || this.#failed || !this.#sourceBuffer)
+      return;
     this.#fill();
   }
 
@@ -295,7 +350,7 @@ export class SyncVideoStream {
         }
       }
     } catch (error) {
-      console.error("SyncVideoStream: fill failed", error);
+      this.#report(error);
     } finally {
       this.#running = false;
     }
@@ -505,7 +560,9 @@ export class SyncVideoStream {
 
     try {
       await invoke("clear_remux", { videoUrl: this.#videoUrl });
-    } catch {}
+    } catch {
+      // The job may have finished and removed itself already.
+    }
 
     URL.revokeObjectURL(this.#url);
   }

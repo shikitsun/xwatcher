@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import type { Channel } from "@tauri-apps/api/core";
-import { SyncVideoStream, type SyncVideoStreamConfig } from "./SyncVideo";
+import {
+  SyncVideoStream,
+  type SyncVideoStreamConfig,
+  type SyncVideoStreamHandlers,
+} from "./SyncVideo";
 import {
   FakeMediaSource,
   lastSourceBuffer,
@@ -122,8 +126,11 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 let streams: SyncVideoStream[] = [];
 
-function createStream(config?: Partial<SyncVideoStreamConfig>) {
-  const stream = new SyncVideoStream("video.mp4", "audio.m4a", config);
+function createStream(
+  config?: Partial<SyncVideoStreamConfig>,
+  handlers?: SyncVideoStreamHandlers,
+) {
+  const stream = new SyncVideoStream("video.mp4", "audio.m4a", config, handlers);
   streams.push(stream);
   return stream;
 }
@@ -222,6 +229,30 @@ describe("SyncVideoStream", () => {
     await waitFor(() => (ranges().at(-1)?.[1] ?? 0) >= 120);
 
     expect(ranges()).toEqual([[0, 120]]);
+  });
+
+  it("reports a SourceBuffer error instead of waiting forever", async () => {
+    const ipc = installIpc();
+    const errors: Error[] = [];
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const stream = createStream(undefined, {
+      onError: (error) => errors.push(error),
+    });
+
+    await waitFor(() => (ranges().at(-1)?.[1] ?? 0) >= 120);
+
+    lastSourceBuffer().failNextUpdate = true;
+    stream.update(95);
+
+    await waitFor(() => errors.length === 1);
+    expect(errors[0].message).toMatch(/SourceBuffer/);
+
+    const requests = ipc.chunkStarts().length;
+    stream.update(130);
+    await delay(30);
+    expect(ipc.chunkStarts().length).toBe(requests);
+
+    errorLog.mockRestore();
   });
 
   it("stops ffmpeg and revokes the blob url on dispose", async () => {
