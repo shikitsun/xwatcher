@@ -18,6 +18,30 @@ use tauri_plugin_shell::{
 /// Identifier of ffmpeg job. Need for cancel previous run correctly
 static NEXT_JOB_ID: AtomicU64 = AtomicU64::new(1);
 
+/// How many trailing stderr lines to keep for the failure message. ffmpeg
+/// prints progress there, so the useful diagnostics are at the end.
+const STDERR_TAIL_LINES: usize = 20;
+
+/// Turns the process exit status into an error the frontend can show.
+/// A `None` code means the process was killed by a signal (including `clear_remux`)
+/// which is still a failure unless the caller cancelled it.
+fn exit_failure(code: Option<i32>, stderr_tail: &[String]) -> Option<String> {
+    if code == Some(0) {
+        return None;
+    }
+
+    let reason = match code {
+        Some(code) => format!("FFmpeg exited with code {code}"),
+        None => "FFmpeg was terminated by a signal".to_string(),
+    };
+
+    if stderr_tail.is_empty() {
+        Some(reason)
+    } else {
+        Some(format!("{reason}: {}", stderr_tail.join(" | ")))
+    }
+}
+
 pub struct MuxJob {
     id: u64,
     child: CommandChild,
@@ -74,13 +98,30 @@ pub async fn create_remux(
         .insert(video_url.clone(), MuxJob { id: job_id, child });
 
     let mut failure: Option<String> = None;
+    let mut stderr_tail: Vec<String> = Vec::new();
 
     while let Some(event) = rx.recv().await {
-        if let CommandEvent::Stdout(line) = event {
-            if let Err(error) = on_chunk.send(InvokeResponseBody::Raw(line.to_vec())) {
-                failure = Some(error.to_string());
-                break;
+        match event {
+            CommandEvent::Stdout(line) => {
+                if let Err(error) = on_chunk.send(InvokeResponseBody::Raw(line.to_vec())) {
+                    failure = Some(error.to_string());
+                    break;
+                }
             }
+            CommandEvent::Stderr(line) => {
+                let text = String::from_utf8_lossy(&line).trim().to_string();
+                if text.is_empty() {
+                    continue;
+                }
+                if stderr_tail.len() == STDERR_TAIL_LINES {
+                    stderr_tail.remove(0);
+                }
+                stderr_tail.push(text);
+            }
+            CommandEvent::Terminated(payload) => {
+                failure = exit_failure(payload.code, &stderr_tail).or(failure);
+            }
+            _ => {}
         }
     }
 
@@ -219,7 +260,7 @@ pub async fn clear_remux(state: State<'_, MuxJobs>, video_url: String) -> Result
 
 #[cfg(test)]
 mod tests {
-    use super::remux_args;
+    use super::{exit_failure, remux_args};
 
     fn seek_indexes(args: &[String]) -> Vec<usize> {
         args.iter()
@@ -267,5 +308,30 @@ mod tests {
 
         assert!(args.windows(2).any(|pair| pair == ["-map", "0:v:0"]));
         assert!(args.windows(2).any(|pair| pair == ["-map", "1:a:0"]));
+    }
+
+    #[test]
+    fn accepts_a_clean_exit() {
+        assert_eq!(exit_failure(Some(0), &["progress".to_string()]), None);
+    }
+
+    #[test]
+    fn reports_a_non_zero_exit_with_stderr_tail() {
+        let stderr = [
+            "Invalid data found when processing input".to_string(),
+            "Error opening input".to_string(),
+        ];
+
+        let message = exit_failure(Some(1), &stderr).expect("exit 1 must fail");
+
+        assert!(message.contains("code 1"));
+        assert!(message.contains("Invalid data found"));
+    }
+
+    #[test]
+    fn reports_signal_termination() {
+        let message = exit_failure(None, &[]).expect("signal must fail");
+
+        assert!(message.contains("signal"));
     }
 }
