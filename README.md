@@ -28,7 +28,8 @@ cd src-tauri && cargo test && cargo clippy --all-targets -- -D warnings
 
 ## Known limitations
 
-- Video and audio directories are selected independently; files are paired by name prefix.
+- Video and audio directories are selected independently. Files are paired by file-name stem;
+  a label after a separator (`Ep1 [L].m4a`) is accepted.
 - Playback state is not persisted between runs.
 
 ## TODO
@@ -40,3 +41,7 @@ cd src-tauri && cargo test && cargo clippy --all-targets -- -D warnings
 - Memoize last played time for each video
 
 Created using Tauri + React + TypeScript + Tailwind CSS + daisyUI.
+
+## License
+
+MIT
