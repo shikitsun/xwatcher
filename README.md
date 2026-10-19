@@ -1,7 +1,35 @@
-# XWatcher - watch different video / audio at same time
+# XWatcher — play a video with a different audio track
 
-Remux provided video and audio like VLC "play audio with video" functionality, but more handy
-Create pairs from video aud audio sources
+XWatcher pairs video files with audio files and plays them as one stream, like VLC's
+"play audio with video" workflow. Point it at a directory of videos and a directory of
+audio; matching files become cards on the home screen.
+
+## Requirements
+
+- Node.js 22+ and npm
+- Rust stable, for the Tauri shell
+- `ffmpeg` and `ffprobe` sidecars under `src-tauri/binaries/` (git-ignored)
+
+## Development
+
+```sh
+npm install
+npm run tauri dev
+```
+
+## Checks
+
+```sh
+npm run lint
+npm run typecheck
+npm test
+cd src-tauri && cargo test && cargo clippy --all-targets -- -D warnings
+```
+
+## Known limitations
+
+- Video and audio directories are selected independently; files are paired by name prefix.
+- Playback state is not persisted between runs.
 
 ## TODO
 
@@ -11,16 +39,4 @@ Create pairs from video aud audio sources
 - Treat video-audio pairs as directory and play them as playlist
 - Memoize last played time for each video
 
-## Known limitations
-
-- Up to 2GB files currently supported
-- Video and audio sources selectable each individually
-
-
-## Development
-
-```
-npm run tauri dev
-```
-
-Created using Tauri + react + typescript + tailwindCSS + daisyUI
+Created using Tauri + React + TypeScript + Tailwind CSS + daisyUI.
