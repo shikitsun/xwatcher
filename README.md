@@ -35,9 +35,7 @@ cd src-tauri && cargo test && cargo clippy --all-targets -- -D warnings
 ## TODO
 
 - Save previously loaded directories and create library from that
-- Track last played video
-- Better UI: Animations, transitions, paths
-- Treat video-audio pairs as directory and play them as playlist
+- Better UI: Animations
 - Memoize last played time for each video
 
 Created using Tauri + React + TypeScript + Tailwind CSS + daisyUI.
