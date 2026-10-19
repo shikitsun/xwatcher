@@ -11,6 +11,7 @@ import {
   lastSourceBuffer,
   resetFakeMediaSource,
 } from "@/test/fake-mse";
+import { encodeEntry, tauriInternals } from "@/test/utils";
 
 interface IpcLogEntry {
   cmd: string;
@@ -21,26 +22,6 @@ interface IpcMockOptions {
   duration?: number;
   entriesPerChunk?: number;
   delayMs?: number;
-}
-
-function encodeEntry(entry: { offset: number; duration: number }): ArrayBuffer {
-  const json = new TextEncoder().encode(JSON.stringify(entry));
-  const buffer = new ArrayBuffer(4 + json.byteLength);
-
-  new DataView(buffer).setUint32(0, json.byteLength);
-  new Uint8Array(buffer).set(json, 4);
-
-  return buffer;
-}
-
-function tauriInternals() {
-  return (
-    window as unknown as {
-      __TAURI_INTERNALS__: {
-        runCallback: (id: number, data: unknown) => void;
-      };
-    }
-  ).__TAURI_INTERNALS__;
 }
 
 /**
@@ -130,7 +111,12 @@ function createStream(
   config?: Partial<SyncVideoStreamConfig>,
   handlers?: SyncVideoStreamHandlers,
 ) {
-  const stream = new SyncVideoStream("video.mp4", "audio.m4a", config, handlers);
+  const stream = new SyncVideoStream(
+    "video.mp4",
+    "audio.m4a",
+    config,
+    handlers,
+  );
   streams.push(stream);
   return stream;
 }
